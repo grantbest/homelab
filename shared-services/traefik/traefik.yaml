@@ -1,0 +1,32 @@
+# Traefik configuration
+
+ping: {}
+
+accessLog: {}
+
+api:
+  dashboard: true
+  insecure: true # Dashboard on 8080 (don't expose publicly)
+
+entryPoints:
+  web:
+    address: ":80"
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: homelab_public
+  file:
+    filename: "/etc/traefik/dynamic.yaml"
+    watch: true
+
+certificatesResolvers:
+  myresolver:
+    acme:
+      email: grantbest@gmail.com
+      storage: "/etc/traefik/acme.json"
+      httpChallenge:
+        entryPoint: web

@@ -1,0 +1,9 @@
+# Local secrets
+**/.env
+**/acme.json
+
+# Keys
+.sops_age_key.txt
+
+# OS files
+.DS_Store

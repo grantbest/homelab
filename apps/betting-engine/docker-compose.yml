@@ -1,0 +1,34 @@
+# Betting Engine Application
+networks:
+  homelab_global:
+    external: true
+
+services:
+  # The WE do it inc. Dashboard
+  dashboard:
+    image: gamblingengine-frontend-prod:latest
+    container_name: betting-dashboard
+    restart: unless-stopped
+    networks:
+      - homelab_global
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-homelab}
+      - REDIS_URL=redis://redis:6379
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.betting-dashboard.rule=Host(`bestfam.us`)"
+      - "traefik.http.routers.betting-dashboard.entrypoints=web"
+      - "traefik.docker.network=homelab_global"
+
+  # The Betting Engine
+  engine:
+    image: gamblingengine-engine-prod:latest
+    container_name: betting-engine
+    restart: unless-stopped
+    networks:
+      - homelab_global
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-homelab}
+      - REDIS_URL=redis://redis:6379

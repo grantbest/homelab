@@ -1,0 +1,52 @@
+name: Homelab Deployment Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    name: Security & Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Important for Gitleaks to scan history
+
+      - name: Secret Scanning (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Vulnerability Scan (Trivy - FS)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+
+  deploy:
+    name: Run Homelab Pipeline
+    needs: security-scan # ONLY deploy if security scans pass!
+    runs-on: self-hosted 
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup SOPS AGE Key
+        run: |
+          echo "${{ secrets.SOPS_AGE_KEY }}" > ~/.sops_age_key.txt
+          chmod 600 ~/.sops_age_key.txt
+
+      - name: Execute Regression Pipeline
+        run: |
+          ./pipeline.sh
+
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "Deployment cycle complete."

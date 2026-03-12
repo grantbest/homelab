@@ -1,0 +1,93 @@
+<mxfile host="65bd71144e">
+    <diagram id="staged-architecture" name="Homelab Staged Architecture">
+        <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                
+                <!-- Cloudflare Section -->
+                <mxCell id="cloudflare_group" value="Cloudflare Edge (Cloud)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="40" width="220" height="400" as="geometry"/>
+                </mxCell>
+                <mxCell id="waf" value="WAF &amp; Bot Protection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="cloudflare_group">
+                    <mxGeometry x="30" y="50" width="160" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="access" value="Cloudflare Access&#xa;(The Bouncer)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="cloudflare_group">
+                    <mxGeometry x="30" y="140" width="160" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="tunnel_edge" value="Cloudflare Tunnel Endpoint" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="cloudflare_group">
+                    <mxGeometry x="30" y="300" width="160" height="80" as="geometry"/>
+                </mxCell>
+
+                <!-- MacBook Host Section -->
+                <mxCell id="macbook_group" value="Local MacBook (Host)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" vertex="1" parent="1">
+                    <mxGeometry x="360" y="40" width="560" height="740" as="geometry"/>
+                </mxCell>
+
+                <!-- Docker Network Section -->
+                <mxCell id="docker_net" value="Docker Network: homelab_global" style="swimlane;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="macbook_group">
+                    <mxGeometry x="20" y="40" width="420" height="420" as="geometry"/>
+                </mxCell>
+                <mxCell id="cloudflared" value="cloudflared" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="docker_net">
+                    <mxGeometry x="20" y="50" width="100" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="traefik" value="Traefik&#xa;(Proxy &amp; Hub)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="docker_net">
+                    <mxGeometry x="150" y="120" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="postgres" value="PostgreSQL" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="docker_net">
+                    <mxGeometry x="20" y="310" width="80" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="redis" value="Redis" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="docker_net">
+                    <mxGeometry x="120" y="310" width="80" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="dashboard" value="Betting Dashboard" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="docker_net">
+                    <mxGeometry x="280" y="270" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="engine" value="Betting Engine" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="docker_net">
+                    <mxGeometry x="280" y="340" width="120" height="60" as="geometry"/>
+                </mxCell>
+
+                <!-- Secrets Section -->
+                <mxCell id="secrets_group" value="Security &amp; Secrets Control" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;dashed=1;" vertex="1" parent="macbook_group">
+                    <mxGeometry x="20" y="480" width="520" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="age_key" value="AGE Private Key&#xa;(~/.sops_age_key.txt)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="secrets_group">
+                    <mxGeometry x="30" y="40" width="140" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="sops_engine" value="SOPS Encryption Engine" style="process;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="secrets_group">
+                    <mxGeometry x="210" y="50" width="160" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="env_files" value="Encrypted .env Files&#xa;(Safe for Git)" style="shape=module;align=left;spacingLeft=20;adjustable=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="secrets_group">
+                    <mxGeometry x="400" y="50" width="100" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="decryption_flow" value="Decrypt on Deploy" style="endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;dashed=1;" edge="1" parent="macbook_group" source="env_files" target="docker_net">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="470" y="710"/>
+                            <mxPoint x="550" y="710"/>
+                            <mxPoint x="550" y="460"/>
+                            <mxPoint x="230" y="460"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+
+                <!-- Connectors -->
+                <mxCell id="key_to_sops" value="" style="endArrow=classic;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="secrets_group" source="age_key" target="sops_engine">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="sops_to_env" value="" style="endArrow=classic;startArrow=classic;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="secrets_group" source="sops_engine" target="env_files">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+                </mxCell>
+                
+                <mxCell id="tunnel_flow" value="Encrypted Tunnel" style="endArrow=classic;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=3;edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="tunnel_edge" target="cloudflared">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="320" y="380"/>
+                            <mxPoint x="320" y="155"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
