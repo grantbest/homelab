@@ -1,5 +1,7 @@
 # Homelab Infrastructure: Cloudflare Edition
 
+![Deployment Status](https://github.com/grantbest/homelab/actions/workflows/deploy.yml/badge.svg)
+
 I have updated your homelab setup to use a **Cloudflare Tunnel**. This is the most secure way to host from home.
 
 ### How it Works:
