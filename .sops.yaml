@@ -1,3 +1,5 @@
 creation_rules:
   - path_regex: .*/\.env$
-    age: "age1x3g80gqjv89vzcnek3ka0sen3s7j89czf9enq5wfwpfpr2lfes6qyc6rag"
+    age: "age1vtpq2s8s09w847xmypcaat3nqvkja72sthzxg4wtr4tplc3z5fysgsgpts"
+  - path_regex: .*\.json$
+    age: "age1vtpq2s8s09w847xmypcaat3nqvkja72sthzxg4wtr4tplc3z5fysgsgpts"
