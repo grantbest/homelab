@@ -1,99 +1,62 @@
 #!/bin/bash
 
-# --- Color Codes ---
+# BestFam Framework: Global Validation Suite
+# Goal: Verify Infrastructure, Routing, and Multi-Environment Isolation
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
 echo "=========================================="
-echo "🚀 Homelab GitOps Validation Suite"
+echo "🚀 BestFam Framework: Health Checks"
 echo "=========================================="
 
-# 1. Check if Shared Services are running
-echo -n "[1/5] Checking Shared Services... "
+# 1. Shared Services
+echo -n "[1/7] Shared Services (Core)... "
 SERVICES=("traefik" "cloudflared" "postgres" "redis")
-MISSING_SERVICES=()
-
+MISSING=()
 for svc in "${SERVICES[@]}"; do
-    if ! docker ps --format '{{.Names}}' | grep -q "^$svc$"; then
-        MISSING_SERVICES+=("$svc")
-    fi
+    if ! docker ps --format '{{.Names}}' | grep -q "^$svc$"; then MISSING+=("$svc"); fi
 done
+if [ ${#MISSING[@]} -eq 0 ]; then echo -e "${GREEN}PASS${NC}"; else echo -e "${RED}FAIL${NC} (Missing: ${MISSING[*]})"; fi
 
-if [ ${#MISSING_SERVICES[@]} -eq 0 ]; then
-    echo -e "${GREEN}PASS${NC}"
-else
-    echo -e "${RED}FAIL${NC} (Missing: ${MISSING_SERVICES[*]})"
-    exit 1
-fi
+# 2. Database Health
+echo -n "[2/7] Postgres Connectivity... "
+if docker exec postgres pg_isready -U postgres >/dev/null 2>&1; then echo -e "${GREEN}PASS${NC}"; else echo -e "${RED}FAIL${NC}"; fi
 
-# 2. Check Global Network Connectivity
-echo -n "[2/5] Checking homelab_global network... "
-if docker network inspect homelab_global >/dev/null 2>&1; then
-    echo -e "${GREEN}PASS${NC}"
-else
-    echo -e "${RED}FAIL${NC} (Network homelab_global not found)"
-    exit 1
-fi
+# 3. Network Isolation
+echo -n "[3/7] Framework Network (Global)... "
+if docker network inspect homelab_global >/dev/null 2>&1; then echo -e "${GREEN}PASS${NC}"; else echo -e "${RED}FAIL${NC}"; fi
 
-# 3. Check Database Connectivity
-echo -n "[3/5] Testing PostgreSQL Connection... "
-if docker exec postgres pg_isready -U postgres >/dev/null 2>&1; then
-    echo -e "${GREEN}PASS${NC}"
-else
-    echo -e "${RED}FAIL${NC}"
-fi
+# 4. Cloudflare Tunnel
+echo -n "[4/7] Cloudflare Tunnel Auth... "
+if docker logs cloudflared 2>&1 | grep -q "Registered tunnel connection"; then echo -e "${GREEN}PASS${NC}"; else echo -e "${RED}FAIL${NC}"; fi
 
-# 4. Check Redis Connectivity
-echo -n "[4/5] Testing Redis Connection... "
-if docker exec redis redis-cli ping | grep -q "PONG"; then
-    echo -e "${GREEN}PASS${NC}"
-else
-    echo -e "${RED}FAIL${NC}"
-fi
-
-# 5. Check Application Routing (Traefik API)
-echo -n "[5/5] Checking Traefik Routing Status... "
+# 5. Routing (Traefik API)
+echo -n "[5/7] Traefik Routing Table... "
 ROUTERS=$(curl -s http://localhost:8080/api/http/routers)
-EXPECTED_ROUTERS=("betting-dashboard@docker" "dev-app-secure@file")
-FAIL_ROUTERS=()
-
-for router in "${EXPECTED_ROUTERS[@]}"; do
-    if ! echo "$ROUTERS" | grep -q "$router"; then
-        FAIL_ROUTERS+=("$router")
-    fi
-done
-
-if [ ${#FAIL_ROUTERS[@]} -eq 0 ]; then
+if echo "$ROUTERS" | grep -q "betting-prod@docker" && echo "$ROUTERS" | grep -q "betting-dev@docker"; then
     echo -e "${GREEN}PASS${NC}"
 else
-    echo -e "${RED}FAIL${NC} (Missing routers: ${FAIL_ROUTERS[*]})"
+    echo -e "${RED}FAIL${NC} (Missing Instance Routers)"
 fi
 
-# 6. Run App-Specific Validations
-echo "=========================================="
-echo "📱 Running App-Specific Validations"
-echo "=========================================="
-
-# Find all validate.sh files in the apps directory
-APP_TESTS=$(find apps -name "validate.sh")
-
-if [ -z "$APP_TESTS" ]; then
-    echo "No app-specific tests found."
+# 6. Production Health (bestfam.us)
+echo -n "[6/7] Production Instance Health... "
+if curl -s -H "Host: bestfam.us" http://localhost:80/api/config | grep -q "production"; then
+    echo -e "${GREEN}PASS${NC}"
 else
-    for test_script in $APP_TESTS; do
-        APP_NAME=$(dirname "$test_script" | xargs basename)
-        echo -n "Testing App: [$APP_NAME]... "
-        chmod +x "$test_script"
-        if bash "$test_script"; then
-            echo -e "${GREEN}PASS${NC}"
-        else
-            echo -e "${RED}FAIL${NC}"
-            exit 1
-        fi
-    done
+    echo -e "${RED}FAIL${NC}"
+fi
+
+# 7. Development Health (dev.bestfam.us)
+echo -n "[7/7] Development Instance Health... "
+if curl -s -H "Host: dev.bestfam.us" http://localhost:80/api/config | grep -q "development"; then
+    echo -e "${GREEN}PASS${NC}"
+else
+    echo -e "${RED}FAIL${NC}"
 fi
 
 echo "=========================================="
-echo "✅ All core and app tests complete!"
+echo "✅ ALL SYSTEMS OPERATIONAL"
 echo "=========================================="

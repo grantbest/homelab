@@ -1,0 +1,43 @@
+# BestFam Framework: Betting Engine (Production)
+services:
+  # The Betting Engine (Production Worker)
+  engine:
+    image: ghcr.io/grantbest/betting-application/engine:main
+    container_name: betting-prod-engine
+    restart: unless-stopped
+    networks:
+      - homelab_global
+    env_file: .env
+    environment:
+      - APP_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=homelab
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASS=${DB_PASSWORD:-postgres}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+  # The Betting Dashboard (Production UI)
+  dashboard:
+    image: ghcr.io/grantbest/betting-application/frontend:main
+    container_name: betting-prod-dashboard
+    restart: unless-stopped
+    networks:
+      - homelab_global
+    env_file: .env
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/homelab
+      - REDIS_URL=redis://redis:6379
+      - PROD_URL=https://bestfam.us
+      - DEV_URL=https://dev.bestfam.us
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.betting-prod.rule=Host(`bestfam.us`)"
+      - "traefik.http.routers.betting-prod.entrypoints=web"
+      - "traefik.docker.network=homelab_global"
+
+networks:
+  homelab_global:
+    external: true

@@ -11,8 +11,9 @@ services:
     container_name: cloudflared
     restart: unless-stopped
     command: tunnel run
+    env_file: .env
     environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+      - TUNNEL_TOKEN=eyJhIjoiNjc5MjBiZTM1NWZlMmVmZmRkOTAxODYwOWE2YWIwNTAiLCJ0IjoiZWE3OTY5N2QtNjlhZi00ZTU5LTk5ZTItOTYwZmU2M2VlNzIyIiwicyI6Ik5qTmlZelU0TVRndFl6SmlaUzAwTVRjMExUazBZbU10TVRRME5tRXpOalZrWTJVNVlUQm1aR0ptTm1ZdE4yVTBZeTAwWlRWaUxXSXhNbVl0TlRnME1UY3laVEk1TnpoayJ9
     networks:
       - homelab_global
 
@@ -63,6 +64,43 @@ services:
     restart: unless-stopped
     networks:
       - homelab_global
+
+  # Temporal Orchestration Engine
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: temporal
+    restart: unless-stopped
+    ports:
+      - "7233:7233"
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PWD=${DB_PASSWORD:-postgres}
+      - POSTGRES_SEEDS=postgres
+    networks:
+      - homelab_global
+    depends_on:
+      - postgres
+
+  # Temporal Web UI
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: temporal-ui
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:8080
+    networks:
+      - homelab_global
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.temporal-ui.rule=Host(`temporal.${ACME_DOMAIN:-bestfam.us}`)"
+      - "traefik.http.routers.temporal-ui.entrypoints=websecure"
+      - "traefik.http.routers.temporal-ui.tls.certresolver=myresolver"
+      - "traefik.http.services.temporal-ui.loadbalancer.server.port=8080"
 
 volumes:
   postgres_data:

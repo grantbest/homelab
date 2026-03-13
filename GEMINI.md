@@ -73,5 +73,19 @@ Simply `git push` to the `main` branch. The **GitHub Actions Runner** will execu
 | **Prod Web App** | `bestfam.us` | `betting-dashboard:3000` | Public / WAF | `homelab_global` |
 | **Dev Web App** | `dev.bestfam.us` | `host.docker.internal:3000`| **Cloudflare Access** | `homelab_global` |
 | **Traefik Dashboard** | `traefik.bestfam.us`| `api@internal` | **Cloudflare Access** | `homelab_global` |
-| **Postgres** | N/A | `postgres:5432` | Internal Only | `homelab_global` |
-| **Redis** | N/A | `redis:6379` | Internal Only | `homelab_global` |
+---
+
+## 7. Agentic Orchestration Protocol
+
+This project is part of a centralized multi-agent system using **Temporal** and **Beads**.
+
+### **The "Command Center" Rule**
+- **Orchestration:** All multi-agent workflows are managed from this directory.
+- **Durable Execution:** The `unified_worker.py` (located at `../../unified_worker.py` or centrally) must be running to process tasks from the `main-orchestrator-queue` and `homelab-queue`.
+- **State Management:** Use `scripts/beads_manager.py` to create, read, and update task state in the `.beads/` directory.
+
+### **Agent Directives**
+1. **Check Beads First:** Before starting a task, always run `python3 scripts/beads_manager.py list` to see if there are pending handoffs from other agents (e.g., the Betting App agent).
+2. **Respect the Handoff:** If a task involves application-level fixes (Betting App logic), do NOT attempt to fix it here. Update the Bead and allow the Central Orchestrator to route it to the appropriate worker.
+3. **Log Everything:** Ensure all infrastructure audits and fixes are recorded in the `resolution` field of the Bead.
+

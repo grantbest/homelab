@@ -1,6 +1,12 @@
 http:
   routers:
-    # Development Routers (Still on Host for now if desired)
+    # Development Router
+    dev-app:
+      rule: "Host(`dev.bestfam.us`)"
+      service: dev-app-service
+      entryPoints:
+        - web
+
     dev-app-secure:
       rule: "Host(`dev.bestfam.us`)"
       service: dev-app-service
@@ -9,14 +15,8 @@ http:
       tls:
         certResolver: myresolver
 
-    dev-app:
-      rule: "Host(`dev.bestfam.us`)"
-      service: dev-app-service
-      entryPoints:
-        - web
-
   services:
     dev-app-service:
       loadBalancer:
         servers:
-          - url: "http://host.docker.internal:3000"
+          - url: "http://betting-dev-dashboard:3000"

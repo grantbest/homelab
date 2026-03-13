@@ -1,0 +1,56 @@
+# BestFam Framework: Betting Engine (Development)
+services:
+  # The Betting Engine (Dev Worker)
+  engine:
+    image: ghcr.io/grantbest/betting-application/engine:dev
+    container_name: betting-dev-engine
+    restart: unless-stopped
+    networks:
+      - homelab_global
+    env_file: .env
+    environment:
+      - APP_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=homelab_dev
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASS=${DB_PASSWORD:-postgres}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MLB_API_BASE_URL=http://betting-dev-mock-api:5000/api/v1
+    depends_on:
+      - mock_api
+
+  # The Betting Dashboard (Dev UI)
+  dashboard:
+    image: ghcr.io/grantbest/betting-application/frontend:dev
+    container_name: betting-dev-dashboard
+    restart: unless-stopped
+    networks:
+      - homelab_global
+    env_file: .env
+    environment:
+      - APP_ENV=development
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/homelab_dev
+      - REDIS_URL=redis://redis:6379
+      - PROD_URL=https://bestfam.us
+      - DEV_URL=https://dev.bestfam.us
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.betting-dev.rule=Host(`dev.bestfam.us`)"
+      - "traefik.http.routers.betting-dev.entrypoints=web"
+      - "traefik.docker.network=homelab_global"
+
+  # The Mock API (Dev Only)
+  mock_api:
+    image: betting-application-mock-api:dev
+    container_name: betting-dev-mock-api
+    networks:
+      - homelab_global
+    ports:
+      - "5001:5000"
+    restart: always
+
+networks:
+  homelab_global:
+    external: true
