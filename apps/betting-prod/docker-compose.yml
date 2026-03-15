@@ -20,7 +20,9 @@ services:
 
   # The Betting Dashboard (Production UI)
   dashboard:
-    image: ghcr.io/grantbest/betting-application/frontend:main
+    build:
+      context: ../../../BettingApp/frontend
+      dockerfile: Dockerfile
     container_name: betting-prod-dashboard
     restart: unless-stopped
     networks:
@@ -34,7 +36,7 @@ services:
       - DEV_URL=https://dev.bestfam.us
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.betting-prod.rule=Host(`bestfam.us`)"
+      - "traefik.http.routers.betting-prod.rule=Host(`bestfam.us`) || Host(`127.0.0.1`) || Host(`localhost`)"
       - "traefik.http.routers.betting-prod.entrypoints=web"
       - "traefik.docker.network=homelab_global"
 

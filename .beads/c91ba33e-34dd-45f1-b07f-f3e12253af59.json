@@ -1,0 +1,15 @@
+{
+    "id": "c91ba33e-34dd-45f1-b07f-f3e12253af59",
+    "title": "Correct Volume Test",
+    "description": "Verify that the agent can finally see and process this bead.",
+    "status": "completed",
+    "requesting_agent": "user-manual-trigger",
+    "assigned_agent": null,
+    "created_at": "2026-03-15T17:57:12.364449",
+    "updated_at": "2026-03-15T17:57:36.387741",
+    "context": {
+        "triage_queue": "homelab-queue",
+        "triage_reasoning": "The mention of a 'volume test' and 'bead' suggests an infrastructure or hardware issue, likely related to storage or a peripheral device."
+    },
+    "resolution": "Simulated Homelab infrastructure task completion by agent."
+}

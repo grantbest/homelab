@@ -32,7 +32,7 @@ for dir in "${SERVICES[@]}"; do
     echo -e "${YELLOW}[2/4] Updating: $dir...${NC}"
     if [ -d "$dir" ]; then
         cd "$dir"
-        docker compose pull --quiet
+        docker compose build --pull --quiet
         docker compose up -d --force-recreate --remove-orphans
         cd - > /dev/null
         echo -e "${GREEN}DONE: $dir is live.${NC}"
@@ -54,6 +54,34 @@ echo "=========================================="
 echo "✅ DEPLOYMENT COMPLETE"
 echo "=========================================="
 
-# 4. Validation
-echo "[4/4] Running Health Checks..."
+# 4. SERVICES: Start/Restart Background Agents
+echo -n "[4/5] Starting Chat Bridge... "
+pkill -f chat_bridge.py || true
+# Ensure DB_HOST is set to localhost for host-based execution
+export DB_HOST=localhost
+nohup /Users/grantbest/Documents/Active/venv/bin/python3 scripts/chat_bridge.py > scripts/chat_bridge.log 2>&1 &
+echo -e "${GREEN}DONE${NC}"
+
+# 5. Validation: Health Checks and Regression Tests
+echo "[5/5] Running Validation..."
 ./tests/validate-homelab.sh
+
+echo "------------------------------------------"
+echo "🎭 Running Playwright Regression Tests..."
+npx playwright test --project=chromium
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✅ ALL REGRESSION TESTS PASSED${NC}"
+else
+    echo -e "${RED}❌ REGRESSION TESTS FAILED${NC}"
+fi
+
+echo "------------------------------------------"
+echo "🤖 Running Agentic AI Audit..."
+PYTHONPATH=scripts ./venv/bin/python3 tests/agentic_validation.py
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✅ AGENTIC AI AUDIT PASSED${NC}"
+else
+    echo -e "${RED}❌ AGENTIC AI AUDIT FAILED${NC}"
+fi
+
+echo "=========================================="

@@ -1,0 +1,15 @@
+{
+    "id": "0d79db0f-5316-416a-b90f-8ef6494ddcd0",
+    "title": "Docker Volume Test",
+    "description": "Verify that agents can now find beads after the path fix.",
+    "status": "completed",
+    "requesting_agent": "user-manual-trigger",
+    "assigned_agent": null,
+    "created_at": "2026-03-15T17:56:02.295051",
+    "updated_at": "2026-03-15T17:57:36.218998",
+    "context": {
+        "triage_queue": "homelab-queue",
+        "triage_reasoning": "This task appears to be related to infrastructure and Docker setup, making it a good fit for the homelab-queue."
+    },
+    "resolution": "Simulated Homelab infrastructure task completion by agent."
+}

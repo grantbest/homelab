@@ -23,7 +23,9 @@ services:
 
   # The Betting Dashboard (Dev UI)
   dashboard:
-    image: ghcr.io/grantbest/betting-application/frontend:dev
+    build:
+      context: ../../../BettingApp/frontend
+      dockerfile: Dockerfile
     container_name: betting-dev-dashboard
     restart: unless-stopped
     networks:

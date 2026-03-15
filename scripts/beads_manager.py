@@ -37,7 +37,10 @@ def get_dirs():
     # Hardcoded known paths for this specific environment
     paths = [
         Path("/Users/grantbest/Documents/Active/Homelab/.beads"),
-        Path("/Users/grantbest/Documents/Active/BettingApp/.beads")
+        Path("/Users/grantbest/Documents/Active/BettingApp/.beads"),
+        # Docker Container Paths
+        Path("/app/Homelab/.beads"),
+        Path("/app/BettingApp/.beads")
     ]
     return [p for p in paths if p.exists()]
 
@@ -57,8 +60,23 @@ def create_bead(title, description, requesting_agent, assigned_agent=None):
         "resolution": None
     }
     
-    # Default to Homelab for new beads
-    file_path = Path("/Users/grantbest/Documents/Active/Homelab/.beads") / f"{bead_id}.json"
+    # Try multiple possible save locations
+    save_locations = [
+        Path("/Users/grantbest/Documents/Active/Homelab/.beads"),
+        Path("/app/Homelab/.beads"),
+        Path("./.beads")
+    ]
+    
+    file_path = None
+    for loc in save_locations:
+        if loc.exists():
+            file_path = loc / f"{bead_id}.json"
+            break
+            
+    if not file_path:
+         file_path = Path(".beads") / f"{bead_id}.json"
+         file_path.parent.mkdir(exist_ok=True)
+
     with open(file_path, "w") as f:
         json.dump(bead_data, f, indent=4)
     print(f"Created bead: {bead_id}")

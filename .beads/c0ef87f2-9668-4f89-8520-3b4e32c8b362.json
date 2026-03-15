@@ -1,0 +1,15 @@
+{
+    "id": "c0ef87f2-9668-4f89-8520-3b4e32c8b362",
+    "title": "Fix CSS Alignment",
+    "description": "The homepage button is misaligned on mobile.",
+    "status": "completed",
+    "requesting_agent": "user-manual-trigger",
+    "assigned_agent": null,
+    "created_at": "2026-03-15T17:37:11.298062",
+    "updated_at": "2026-03-15T17:37:26.971928",
+    "context": {
+        "triage_queue": "betting-app-queue",
+        "triage_reasoning": "The issue appears to be related to the application's UI and frontend code, specifically the Next.js framework, making the 'betting-app-queue' the most suitable target."
+    },
+    "resolution": "Simulated Betting App task completion by agent."
+}

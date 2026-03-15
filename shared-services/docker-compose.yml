@@ -52,6 +52,8 @@ services:
       - POSTGRES_USER=${DB_USER:-postgres}
       - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
       - POSTGRES_DB=${DB_NAME:-homelab}
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -101,6 +103,63 @@ services:
       - "traefik.http.routers.temporal-ui.entrypoints=websecure"
       - "traefik.http.routers.temporal-ui.tls.certresolver=myresolver"
       - "traefik.http.services.temporal-ui.loadbalancer.server.port=8080"
+
+  # AI Quarterback Worker
+  ai-quarterback:
+    build:
+      context: ../..
+      dockerfile: Homelab/Dockerfile.agents
+    container_name: ai-quarterback
+    restart: always
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - PYTHONPATH=/app/Homelab/scripts:/app/BettingApp/scripts
+    volumes:
+      - ..:/app/Homelab
+      - ../../BettingApp:/app/BettingApp
+    networks:
+      - homelab_global
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - temporal
+
+  # Homelab Agent
+  homelab-agent:
+    build:
+      context: ../..
+      dockerfile: Homelab/Dockerfile.agents
+    container_name: homelab-agent
+    command: python /app/Homelab/scripts/homelab_agent.py
+    restart: always
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - PYTHONPATH=/app/Homelab/scripts
+    volumes:
+      - ..:/app/Homelab
+    networks:
+      - homelab_global
+    depends_on:
+      - temporal
+
+  # Betting App Agent
+  betting-agent:
+    build:
+      context: ../..
+      dockerfile: Homelab/Dockerfile.agents
+    container_name: betting-agent
+    command: python /app/BettingApp/scripts/betting_agent.py
+    restart: always
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - PYTHONPATH=/app/BettingApp/scripts
+    volumes:
+      - ../../BettingApp:/app/BettingApp
+    networks:
+      - homelab_global
+    depends_on:
+      - temporal
 
 volumes:
   postgres_data:

@@ -1,11 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.use({
-  // Use the local Traefik port to bypass the need for public DNS during testing
-  baseURL: 'http://localhost:80',
-  extraHTTPHeaders: {
-    'Host': 'bestfam.us',
-  },
+  baseURL: 'http://127.0.0.1:80',
 });
 
 test('Dashboard Regression: Home Page Loads and shows Title', async ({ page }) => {
@@ -17,5 +13,5 @@ test('Dashboard Regression: Home Page Loads and shows Title', async ({ page }) =
   
   // Check for some text that should definitely be on your dashboard
   // (Adjust this to match what's actually in your Next.js app)
-  await expect(page).toHaveTitle(/Next.js/);
+  await expect(page).toHaveTitle(/Betting Engine/);
 });
