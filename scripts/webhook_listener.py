@@ -25,13 +25,21 @@ async def vikunja_webhook(request: Request):
     buckets = task.get("buckets", [])
     bucket_title = buckets[0].get("title") if buckets else "Inbox"
 
-    # 1. ANTI-LOOP FILTER — only block agent-driven updates while still in Design
-    # If the user moves the task to a different bucket, always let it through.
+    # 1. ANTI-LOOP FILTER
     description = task.get("description", "")
+
+    # Block Design re-triggers (agent updated the design doc)
     if "[AGENT_SIGNATURE]" in description or "## Solution Design" in description:
         if event == "task.updated" and bucket_title == "Design":
             print(f"WEBHOOK: Ignoring agent-driven update for Task {task_id}")
             return {"status": "ignored", "reason": "Agent signature detected in description"}
+
+    # Block Doing re-triggers while epic breakdown is in progress.
+    # The coordinator stamps [BREAKDOWN_STARTED] as its first action so that
+    # Vikunja webhook retries (from link_beads or move_to_bucket) are ignored.
+    if "[BREAKDOWN_STARTED]" in description and event == "task.updated" and bucket_title == "Doing":
+        print(f"WEBHOOK: Ignoring Doing event for Task {task_id} — breakdown already in progress")
+        return {"status": "ignored", "reason": "Breakdown already in progress"}
 
     # 2. Ignore agent comments
     if event == "task.comment.created":
