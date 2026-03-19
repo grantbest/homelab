@@ -70,12 +70,10 @@ async def vikunja_webhook(request: Request):
             print(f"SUCCESS: Triggered design refine {workflow_id}")
             return {"status": "triggered", "workflow": workflow_id}
 
-        # Bucket entry (task.updated = bucket move) — deterministic ID, fallback to timestamp on duplicate
-        if event == "task.updated":
-            workflow_id = f"agile-task-{task_id}-{workflow_bucket.lower()}-entry"
-        else:
-            workflow_id = f"agile-task-{task_id}-{workflow_bucket.lower()}-{int(time.time())}"
-
+        # Bucket entry (task.updated = bucket move) — deterministic ID, skip if already ran.
+        # Never use timestamp fallback for bucket moves — link_beads fires task.updated on the
+        # parent epic, and a timestamp fallback would re-trigger breakdown, creating a loop.
+        workflow_id = f"agile-task-{task_id}-{workflow_bucket.lower()}-entry"
         try:
             await client.start_workflow(
                 "MayorWorkflow",
@@ -85,16 +83,9 @@ async def vikunja_webhook(request: Request):
             )
         except Exception as e:
             if "already" in str(e).lower() or "exists" in str(e).lower():
-                # Workflow already ran for this bucket entry — re-run with timestamp suffix
-                workflow_id = f"agile-task-{task_id}-{workflow_bucket.lower()}-{int(time.time())}"
-                await client.start_workflow(
-                    "MayorWorkflow",
-                    [str(task_id), workflow_bucket],
-                    id=workflow_id,
-                    task_queue="main-orchestrator-queue",
-                )
-            else:
-                raise
+                print(f"WEBHOOK: Workflow {workflow_id} already ran — skipping duplicate trigger")
+                return {"status": "skipped", "reason": "workflow already ran for this bucket entry"}
+            raise
 
         print(f"SUCCESS: Triggered {workflow_id}")
         return {"status": "triggered", "workflow": workflow_id}
