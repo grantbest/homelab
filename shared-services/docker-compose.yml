@@ -225,8 +225,84 @@ services:
     networks:
       - homelab_global
 
+  # --- MONITORING & OBSERVABILITY ---
+  
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter
+    container_name: postgres-exporter
+    restart: unless-stopped
+    environment:
+      # Using standard admin user for mlb_engine as seen in psql -l
+      DATA_SOURCE_NAME: "postgresql://admin:admin@postgres:5432/mlb_engine?sslmode=disable"
+    networks:
+      - homelab_global
+    depends_on:
+      - postgres
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - homelab_global
+    depends_on:
+      - postgres-exporter
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: unless-stopped
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - homelab_global
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.bestfam.us`)"
+      - "traefik.http.routers.grafana.entrypoints=web"
+      - "traefik.docker.network=homelab_global"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - homelab_global
+
+  # --- BACKUP ---
+  
+  postgres-backup:
+    image: prodrigestivill/postgres-backup-local
+    container_name: postgres-backup
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: "mlb_engine,vikunja,temporal"
+      SCHEDULE: "@daily"
+      BACKUP_DIR: /backups
+      KEEP_DAYS: 7
+    volumes:
+      - ./backups:/backups
+    networks:
+      - homelab_global
+    depends_on:
+      - postgres
+
 volumes:
   postgres_data:
   vikunja_files:
   vikunja_dev_files:
   nexus_data:
+  prometheus_data:
+  grafana_data:

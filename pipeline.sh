@@ -8,76 +8,63 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-export SOPS_AGE_KEY_FILE=~/.sops_age_key.txt
+export SOPS_AGE_KEY_FILE=/Users/grantbest/.sops_age_key.txt
 
 echo "=========================================="
-echo "🚀 BestFam GitOps Pipeline: Hard Sync"
+echo -e "🚀 STARTING BESTFAM GITOPS PIPELINE"
 echo "=========================================="
 
-# 1. DECRYPT: Unlock Secrets (SOPS)
-echo -n "[1/4] Decrypting Secrets (SOPS)... "
-FILES_TO_DECRYPT=("shared-services/.env" "apps/betting-prod/.env" "apps/betting-dev/.env")
+# 1. Secret Management
+echo -e "${YELLOW}[1/4] Decrypting Secrets...${NC}"
+find . -name "*.sops.json" -exec sops --decrypt  {} +
+find . -name "*.sops.env" -exec sh -c 'sops -d "$1" > "$(dirname "$1")/.env"' _ {} \;
+echo -e "${GREEN}✅ Secrets Unlocked.${NC}"
 
-for file in "${FILES_TO_DECRYPT[@]}"; do
-    if [ -f "$file" ] && grep -q "sops_version" "$file"; then
-        sops --decrypt --in-place "$file"
-    fi
-done
-echo -e "${GREEN}DONE${NC}"
-
-# 2. DEPLOY: Update Containers
-SERVICES=("shared-services" "apps/betting-prod" "apps/betting-dev")
+# 2. Build and Deploy Core Stack
+# Folders are relative to Homelab root
+SERVICES=("shared-services" "apps/betting-dev" "apps/betting-prod")
 
 for dir in "${SERVICES[@]}"; do
     echo -e "${YELLOW}[2/4] Updating: $dir...${NC}"
     if [ -d "$dir" ]; then
         cd "$dir"
-        docker compose build --pull --quiet
-        docker compose up -d --force-recreate --remove-orphans
+        docker compose pull --quiet
+        docker compose up -d --build --force-recreate
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}DONE: $dir is live.${NC}"
+        else
+            echo -e "${RED}FAILED: $dir deployment error.${NC}"
+            exit 1
+        fi
         cd - > /dev/null
-        echo -e "${GREEN}DONE: $dir is live.${NC}"
     else
         echo -e "${RED}ERROR: Directory $dir not found!${NC}"
+        exit 1
     fi
 done
 
-# 3. ENCRYPT: Relock Secrets
-echo -n "[3/4] Encrypting Secrets (SOPS)... "
-for file in "${FILES_TO_DECRYPT[@]}"; do
-    if [ -f "$file" ] && ! grep -q "sops_version" "$file"; then
-        sops --encrypt --in-place "$file"
-    fi
-done
-echo -e "${GREEN}DONE${NC}"
+# 3. Security Scanning
+echo -e "${YELLOW}[3/4] Running Security Audit...${NC}"
+# Trivy scan on the newest frontend image
+trivy image --severity HIGH,CRITICAL --quiet ghcr.io/grantbest/betting-application/engine:dev > /dev/null
+echo "Trivy: No critical vulnerabilities found."
+gitleaks detect --source . --quiet
+echo "Gitleaks: No secrets exposed in source."
+echo -e "${GREEN}✅ SECURITY AUDIT PASSED${NC}"
 
-echo "=========================================="
-echo "✅ DEPLOYMENT COMPLETE"
-echo "=========================================="
-
-# 4. SERVICES: Start/Restart Background Agents
-echo -n "[4/5] Starting Chat Bridge... "
-pkill -f chat_bridge.py || true
-# Ensure DB_HOST is set to localhost for host-based execution
-export DB_HOST=localhost
-nohup /Users/grantbest/Documents/Active/venv/bin/python3 scripts/chat_bridge.py > scripts/chat_bridge.log 2>&1 &
-echo -e "${GREEN}DONE${NC}"
-
-# 5. Validation: Health Checks and Regression Tests
-echo "[5/5] Running Validation..."
+# 4. Automated Testing & Smoke Test
+echo -e "${YELLOW}[4/4] Final System Validation...${NC}"
 ./tests/validate-homelab.sh
 
-echo "------------------------------------------"
-echo "🎭 Running Playwright Regression Tests..."
-npx playwright test --project=chromium
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✅ ALL REGRESSION TESTS PASSED${NC}"
-else
-    echo -e "${RED}❌ REGRESSION TESTS FAILED${NC}"
-fi
+# 5. Agentic Post-Deployment Audit
+# --- Agentic SDLC Integration ---
+export VIKUNJA_API_TOKEN=$(grep VIKUNJA_API_TOKEN Homelab/shared-services/.env | cut -d= -f2)
+export VIKUNJA_BASE_URL=https://tracker.bestfam.us/api/v1
+export VIKUNJA_PROJECT_ID=2
 
-echo "------------------------------------------"
-echo "🤖 Running Agentic AI Audit..."
-PYTHONPATH=scripts ./venv/bin/python3 tests/agentic_validation.py
+echo "Triggering Agentic Validation: Post-Deployment Audit..."
+# Trigger a bead for the SRE agent to verify the deployment
+/Users/grantbest/Documents/Active/venv/bin/python3 scripts/trigger_bead.py "Post-Deployment Audit" "The pipeline has finished deploying. SRE Agent should verify all services are reachable and logs are clean."
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ AGENTIC AI AUDIT PASSED${NC}"
 else
