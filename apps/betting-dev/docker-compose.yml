@@ -2,7 +2,9 @@
 services:
   # The Betting Engine (Dev Worker)
   engine:
-    image: ghcr.io/grantbest/betting-application/engine:dev
+    build:
+      context: ../../../BettingApp
+      dockerfile: Dockerfile
     container_name: betting-dev-engine
     restart: unless-stopped
     networks:
@@ -41,11 +43,14 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.betting-dev.rule=Host(`dev.bestfam.us`)"
       - "traefik.http.routers.betting-dev.entrypoints=web"
+      - "traefik.http.services.betting-dev.loadbalancer.server.port=3000"
       - "traefik.docker.network=homelab_global"
 
   # The Mock API (Dev Only)
   mock_api:
-    image: betting-application-mock-api:dev
+    build:
+      context: ../../../BettingApp/scripts/mock_api
+      dockerfile: Dockerfile
     container_name: betting-dev-mock-api
     networks:
       - homelab_global

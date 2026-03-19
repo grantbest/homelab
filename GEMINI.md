@@ -28,10 +28,10 @@ Core infrastructure that runs continuously and serves multiple applications.
 
 ## 3. Application Stack (`apps/`)
 
-### **Betting Engine** (`apps/betting-engine/`)
-*   **Dashboard**: WE do it inc. dashboard, routed to `bestfam.us`.
-*   **Engine**: Backend betting engine logic.
-*   **Connection**: Uses `homelab_global` to reach `postgres` and `redis`.
+### **Betting App**
+*   **Production** (`apps/betting-prod/`): WE do it inc. dashboard, routed to `bestfam.us`.
+*   **Development** (`apps/betting-dev/`): Isolated dev environment, routed to `dev.bestfam.us`.
+*   **Engine**: Backend betting engine logic in both environments.
 
 ---
 
@@ -70,9 +70,28 @@ Simply `git push` to the `main` branch. The **GitHub Actions Runner** will execu
 
 | Service | Domain | Internal Target | Auth Protection | Network |
 | :--- | :--- | :--- | :--- | :--- |
-| **Prod Web App** | `bestfam.us` | `betting-dashboard:3000` | Public / WAF | `homelab_global` |
-| **Dev Web App** | `dev.bestfam.us` | `host.docker.internal:3000`| **Cloudflare Access** | `homelab_global` |
+| **Prod Web App** | `bestfam.us` | `betting-prod-dashboard:3000` | Public / WAF | `homelab_global` |
+| **Dev Web App** | `dev.bestfam.us` | `betting-dev-dashboard:3000`| **Cloudflare Access** | `homelab_global` |
 | **Traefik Dashboard** | `traefik.bestfam.us`| `api@internal` | **Cloudflare Access** | `homelab_global` |
+---
+
+## 6. Known State as of 2026-03-19
+
+### BettingApp Frontend
+- All pages now use Tailwind CSS dark-slate design system (`bg-slate-950`).
+- `/health` and `/chat` were previously using inline `S` style objects — rewritten.
+- Nav bug fixed: "Rules Engine" button in `page.tsx` now correctly links to `/rules` (was `/health`).
+
+### Prod Engine
+- `betting-prod/docker-compose.yml` engine now builds from local source (`context: ../../../BettingApp`).
+- Previously used stale `ghcr.io/grantbest/betting-application/engine:main` with broken weather service.
+- `WeatherService` now reads weather from MLB Stats API via `game_id` — no external API key needed.
+
+### Database (prod `mlb_engine`)
+- `bet_tracking.game_info` now populated for all rows including seed data.
+- `game_weather` table populated by engine on every monitoring cycle for active games.
+- `init_db.py` seed data includes `game_info` with weather strings.
+
 ---
 
 ## 7. Agentic Orchestration Protocol

@@ -2,7 +2,9 @@
 services:
   # The Betting Engine (Production Worker)
   engine:
-    image: ghcr.io/grantbest/betting-application/engine:main
+    build:
+      context: ../../../BettingApp
+      dockerfile: Dockerfile
     container_name: betting-prod-engine
     restart: unless-stopped
     networks:
@@ -12,9 +14,9 @@ services:
       - APP_ENV=production
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=homelab
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASS=${DB_PASSWORD:-postgres}
+      - DB_NAME=${DB_NAME:-mlb_engine}
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASS=${DB_PASSWORD:-password123}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
 
@@ -30,15 +32,23 @@ services:
     env_file: .env
     environment:
       - APP_ENV=production
-      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/homelab
+      - DATABASE_URL=postgresql://${DB_USER:-admin}:${DB_PASSWORD:-password123}@postgres:5432/${DB_NAME:-mlb_engine}
       - REDIS_URL=redis://redis:6379
       - PROD_URL=https://bestfam.us
       - DEV_URL=https://dev.bestfam.us
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.betting-prod.rule=Host(`bestfam.us`) || Host(`127.0.0.1`) || Host(`localhost`)"
+      - "traefik.http.routers.betting-prod.rule=Host(`bestfam.us`)"
       - "traefik.http.routers.betting-prod.entrypoints=web"
+      - "traefik.http.services.betting-prod.loadbalancer.server.port=3000"
       - "traefik.docker.network=homelab_global"
+      # Zero-Downtime: Traefik will wait for healthcheck pass
 
 networks:
   homelab_global:

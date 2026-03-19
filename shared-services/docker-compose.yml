@@ -10,10 +10,10 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
-    command: tunnel run
+    command: tunnel --no-autoupdate run
     env_file: .env
     environment:
-      - TUNNEL_TOKEN=eyJhIjoiNjc5MjBiZTM1NWZlMmVmZmRkOTAxODYwOWE2YWIwNTAiLCJ0IjoiZWE3OTY5N2QtNjlhZi00ZTU5LTk5ZTItOTYwZmU2M2VlNzIyIiwicyI6Ik5qTmlZelU0TVRndFl6SmlaUzAwTVRjMExUazBZbU10TVRRME5tRXpOalZrWTJVNVlUQm1aR0ptTm1ZdE4yVTBZeTAwWlRWaUxXSXhNbVl0TlRnME1UY3laVEk1TnpoayJ9
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - homelab_global
 
@@ -22,36 +22,40 @@ services:
     image: traefik:v3.1
     container_name: traefik
     restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.dnschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"
+      - "8080:8080" # Dashboard
+    environment:
+      - CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./traefik/traefik.yaml:/etc/traefik/traefik.yaml:ro"
-      - "./traefik/dynamic.yaml:/etc/traefik/dynamic.yaml:ro"
-      - "./traefik/acme.json:/etc/traefik/acme.json"
-    env_file: .env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "./traefik:/etc/traefik/dynamic"
+      - "./letsencrypt:/letsencrypt"
     networks:
       - homelab_global
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`traefik.${ACME_DOMAIN}`)"
-      - "traefik.http.routers.dashboard.service=api@internal"
-      - "traefik.http.routers.dashboard.entrypoints=websecure"
-      - "traefik.http.routers.dashboard.tls.certresolver=myresolver"
 
-  # Central Database
+  # Shared Database
   postgres:
     image: postgres:16-alpine
     container_name: postgres
     restart: unless-stopped
+    command: postgres -c max_connections=500 -c shared_buffers=256MB
     environment:
       - POSTGRES_USER=${DB_USER:-postgres}
       - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
-      - POSTGRES_DB=${DB_NAME:-homelab}
     ports:
       - "5432:5432"
     volumes:
@@ -59,7 +63,7 @@ services:
     networks:
       - homelab_global
 
-  # Central Cache
+  # Shared Cache
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -67,7 +71,7 @@ services:
     networks:
       - homelab_global
 
-  # Temporal Orchestration Engine
+  # Temporal Server
   temporal:
     image: temporalio/auto-setup:latest
     container_name: temporal
@@ -77,8 +81,8 @@ services:
     environment:
       - DB=postgres12
       - DB_PORT=5432
-      - POSTGRES_USER=${DB_USER:-postgres}
-      - POSTGRES_PWD=${DB_PASSWORD:-postgres}
+      - POSTGRES_USER=postgres
+      - POSTGRES_PWD=postgres
       - POSTGRES_SEEDS=postgres
     networks:
       - homelab_global
@@ -93,73 +97,136 @@ services:
     ports:
       - "8081:8080"
     environment:
+      - PYTHONUNBUFFERED=1
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:8080
     networks:
       - homelab_global
+    depends_on:
+      - temporal
+
+  # Vikunja Issue Tracker (Production)
+  vikunja:
+    image: vikunja/vikunja:latest
+    container_name: vikunja
+    restart: unless-stopped
+    ports:
+      - "3456:3456"
+    environment:
+      - VIKUNJA_DATABASE_HOST=postgres
+      - VIKUNJA_DATABASE_PASSWORD=${DB_PASSWORD:-postgres}
+      - VIKUNJA_DATABASE_TYPE=postgres
+      - VIKUNJA_DATABASE_USER=${DB_USER:-postgres}
+      - VIKUNJA_DATABASE_DATABASE=vikunja
+      - VIKUNJA_SERVICE_PUBLICURL=https://tracker.bestfam.us/
+      - VIKUNJA_DATABASE_MAXOPENCONNECTIONS=20
+      - VIKUNJA_DATABASE_MAXIDLECONNECTIONS=10
+      - VIKUNJA_CACHE_ENABLED=true
+      - VIKUNJA_CACHE_TYPE=redis
+      - VIKUNJA_CACHE_REDIS_URL=redis:6379
+    volumes:
+      - vikunja_files:/app/vikunja/files
+    networks:
+      - homelab_global
+    depends_on:
+      - postgres
+      - redis
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.temporal-ui.rule=Host(`temporal.${ACME_DOMAIN:-bestfam.us}`)"
-      - "traefik.http.routers.temporal-ui.entrypoints=websecure"
-      - "traefik.http.routers.temporal-ui.tls.certresolver=myresolver"
-      - "traefik.http.services.temporal-ui.loadbalancer.server.port=8080"
+      - "traefik.http.routers.vikunja.rule=Host(`tracker.bestfam.us`)"
+      - "traefik.http.routers.vikunja.entrypoints=web"
+      - "traefik.docker.network=homelab_global"
 
-  # AI Quarterback Worker
-  ai-quarterback:
+  # Vikunja Issue Tracker (Sandbox / Dev)
+  vikunja-dev:
+    image: vikunja/vikunja:latest
+    container_name: vikunja-dev
+    user: "0:0" # Run as root to fix permission issues on volume init
+    restart: unless-stopped
+    ports:
+      - "3457:3456"
+    environment:
+      - VIKUNJA_DATABASE_HOST=postgres
+      - VIKUNJA_DATABASE_PASSWORD=${DB_PASSWORD:-postgres}
+      - VIKUNJA_DATABASE_TYPE=postgres
+      - VIKUNJA_DATABASE_USER=${DB_USER:-postgres}
+      - VIKUNJA_DATABASE_DATABASE=vikunja_dev
+      - VIKUNJA_SERVICE_PUBLICURL=https://tracker-dev.bestfam.us/
+      - VIKUNJA_DATABASE_MAXOPENCONNECTIONS=20
+      - VIKUNJA_DATABASE_MAXIDLECONNECTIONS=10
+      - VIKUNJA_CACHE_ENABLED=true
+      - VIKUNJA_CACHE_TYPE=redis
+      - VIKUNJA_CACHE_REDIS_URL=redis:6379
+    volumes:
+      - vikunja_dev_files:/app/vikunja/files
+    networks:
+      - homelab_global
+    depends_on:
+      - postgres
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vikunja-dev.rule=Host(`tracker-dev.bestfam.us`)"
+      - "traefik.http.routers.vikunja-dev.entrypoints=web"
+      - "traefik.docker.network=homelab_global"
+
+  # Webhook Listener (RESTORED)
+  webhook-listener:
     build:
-      context: ../..
+      context: ../../
       dockerfile: Homelab/Dockerfile.agents
-    container_name: ai-quarterback
-    restart: always
+    container_name: webhook-listener
+    restart: unless-stopped
+    command: ["python", "-u", "/app/Homelab/scripts/webhook_listener.py"]
+    env_file: .env
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - PYTHONPATH=/app/Homelab/scripts:/app/BettingApp/scripts
     volumes:
-      - ..:/app/Homelab
-      - ../../BettingApp:/app/BettingApp
+      - /Users/grantbest/Documents/Active/Homelab:/app/Homelab
+      - /Users/grantbest/Documents/Active/BettingApp:/app/BettingApp
     networks:
       - homelab_global
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
     depends_on:
       - temporal
 
-  # Homelab Agent
-  homelab-agent:
-    build:
-      context: ../..
-      dockerfile: Homelab/Dockerfile.agents
-    container_name: homelab-agent
-    command: python /app/Homelab/scripts/homelab_agent.py
-    restart: always
-    environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - PYTHONPATH=/app/Homelab/scripts
+  # Artifact Refinery (Nexus OSS)
+  nexus:
+    image: sonatype/nexus3:latest
+    container_name: nexus
+    restart: unless-stopped
     volumes:
-      - ..:/app/Homelab
+      - nexus_data:/nexus-data
     networks:
       - homelab_global
-    depends_on:
-      - temporal
+    ports:
+      - "8082:8081" # Web interface & REST API
+      - "5005:5005" # Reserved for Docker Private Registry
+    environment:
+      - NEXUS_CONTEXT=nexus
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nexus.rule=Host(`nexus.bestfam.us`)"
+      - "traefik.http.routers.nexus.entrypoints=web"
+      - "traefik.http.services.nexus.loadbalancer.server.port=8081"
+      - "traefik.docker.network=homelab_global"
 
-  # Betting App Agent
-  betting-agent:
-    build:
-      context: ../..
-      dockerfile: Homelab/Dockerfile.agents
-    container_name: betting-agent
-    command: python /app/BettingApp/scripts/betting_agent.py
-    restart: always
-    environment:
-      - TEMPORAL_ADDRESS=temporal:7233
-      - PYTHONPATH=/app/BettingApp/scripts
+  # Log Forwarder (Promtail)
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    restart: unless-stopped
     volumes:
-      - ../../BettingApp:/app/BettingApp
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./promtail-config.yaml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
     networks:
       - homelab_global
-    depends_on:
-      - temporal
 
 volumes:
   postgres_data:
+  vikunja_files:
+  vikunja_dev_files:
+  nexus_data:
